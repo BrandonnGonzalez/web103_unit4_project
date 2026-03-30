@@ -1,0 +1,12 @@
+import express from 'express'
+import { getItems, getItemById, createItem, updateItem, deleteItem } from '../controllers/items.js'
+
+const router = express.Router()
+
+router.get('/', getItems)
+router.get('/:id', getItemById)
+router.post('/', createItem)
+router.patch('/:id', updateItem)
+router.delete('/:id', deleteItem)
+
+export default router
