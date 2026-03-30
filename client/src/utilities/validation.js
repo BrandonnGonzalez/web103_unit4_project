@@ -12,6 +12,14 @@ const checkFeatureCombinations = (features) => {
         }
     }
 
+    // Check for impossible feature combination
+    if (features.roof.name.includes('Carbon Fiber') && features.wheels.name.includes('Standard')) {
+        return {
+            isValid: false,
+            message: 'A Carbon Fiber Roof cannot be combined with Standard Wheels! Please select better wheels.'
+        };
+    }
+
     return {
         isValid: true,
         message: 'All required features selected.'

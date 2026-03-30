@@ -1,61 +1,154 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getItemById, updateItem, deleteItem } from '../services/CarsAPI'
+import { getItems, getCarById, updateCar, deleteCar } from '../services/CarsAPI'
+import { calculateTotalPrice } from '../utilities/calcPrice'
+import { checkFeatureCombinations } from '../utilities/validation'
 import '../App.css'
 
 const EditCar = () => {
     const { id } = useParams()
     const navigate = useNavigate()
-    const [car, setCar] = useState({ id: 0, name: '', price: '', category: '' })
+    
+    const [name, setName] = useState('')
+    const [availableOptions, setAvailableOptions] = useState([])
+    const [features, setFeatures] = useState({
+        exterior: null,
+        roof: null,
+        wheels: null,
+        interior: null
+    })
+    const [errorMsg, setErrorMsg] = useState('')
 
     useEffect(() => {
-        const fetchCar = async () => {
-            const data = await getItemById(id)
-            setCar(data)
+        const loadData = async () => {
+            const opts = await getItems()
+            setAvailableOptions(opts)
+            
+            const carData = await getCarById(id)
+            if (carData) {
+                setName(carData.name)
+                setFeatures({
+                    exterior: opts.find(o => o.id === carData.exterior_id) || null,
+                    roof: opts.find(o => o.id === carData.roof_id) || null,
+                    wheels: opts.find(o => o.id === carData.wheels_id) || null,
+                    interior: opts.find(o => o.id === carData.interior_id) || null,
+                })
+            }
         }
-        fetchCar()
+        loadData()
     }, [id])
 
-    const handleChange = (event) => {
-        const { name, value } = event.target
-        setCar((prev) => {
-            return {
-                ...prev,
-                [name]: value,
-            }
-        })
+    const handleFeatureSelect = (category, optionId) => {
+        const option = availableOptions.find(opt => opt.id === parseInt(optionId))
+        setFeatures(prev => ({
+            ...prev,
+            [category]: option
+        }))
     }
 
-    const editCar = async (event) => {
+    const calcTotal = () => {
+        const selectedOptions = Object.values(features).filter(opt => opt !== null)
+        const optionsTotal = calculateTotalPrice(selectedOptions)
+        return 20000 + optionsTotal; // Base price is 20,000
+    }
+
+    const handleUpdateCar = async (event) => {
         event.preventDefault()
-        await updateItem(id, car)
+        const validation = checkFeatureCombinations(features)
+        if (!validation.isValid) {
+            setErrorMsg(validation.message)
+            return
+        }
+
+        if (!name) {
+            setErrorMsg('Name is required.')
+            return
+        }
+
+        const updatedCar = {
+            name: name,
+            exterior_id: features.exterior.id,
+            roof_id: features.roof.id,
+            wheels_id: features.wheels.id,
+            interior_id: features.interior.id,
+            price: calcTotal()
+        }
+
+        try {
+            await updateCar(id, updatedCar)
+            navigate('/customcars')
+        } catch (err) {
+            setErrorMsg('Failed to save car. Impossible combination maybe?')
+        }
+    }
+
+    const handleDelete = async (event) => {
+        event.preventDefault()
+        await deleteCar(id)
         navigate('/customcars')
     }
 
-    const deleteCar = async (event) => {
-        event.preventDefault()
-        await deleteItem(id)
-        navigate('/customcars')
+    // Determine visual style based on exterior selection
+    const getPreviewStyle = () => {
+        let bgColor = '#aaaaaa'
+        if (features.exterior) {
+            if (features.exterior.name.includes('Red')) bgColor = '#ff4d4d'
+            else if (features.exterior.name.includes('Blue')) bgColor = '#4da6ff'
+            else if (features.exterior.name.includes('Silver')) bgColor = '#silver'
+        }
+        return {
+            width: '100%', height: '150px', backgroundColor: bgColor, borderRadius: '15px', 
+            margin: '20px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            color: '#fff', fontSize: '24px', fontWeight: 'bold', textShadow: '1px 1px 2px #000'
+        }
+    }
+
+    const renderOptions = (category) => {
+        const opts = availableOptions.filter(opt => opt.category === category)
+        const currentOpt = features[category]
+        return (
+            <div className="option-group" style={{marginBottom: '15px'}}>
+                <label style={{textTransform: 'capitalize'}}><strong>{category}:</strong></label><br/>
+                <select onChange={(e) => handleFeatureSelect(category, e.target.value)} value={currentOpt ? currentOpt.id : ""} style={{width: '100%', padding: '10px', borderRadius: '5px'}}>
+                    <option value="" disabled>Select {category}...</option>
+                    {opts.map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.name} (+${opt.price})</option>
+                    ))}
+                </select>
+            </div>
+        )
+    }
+
+    if (availableOptions.length === 0) {
+        return <div><center><h2 style={{color: 'white'}}>Loading...</h2></center></div>
     }
 
     return (
-        <div className="edit-car">
-            <center><h2>Edit Item</h2></center>
+        <div className="edit-car" style={{padding: '30px', maxWidth: '800px', margin: '40px auto', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: '10px', boxShadow: '0 4px 8px rgba(0,0,0,0.2)'}}>
+            <center><h2 style={{color: '#333'}}>Update Your Car</h2></center>
+            
+            <div style={getPreviewStyle()}>
+                {features.exterior ? features.exterior.name + ' Body' : 'Select an Exterior Color'}
+            </div>
+
+            {errorMsg && <p style={{color: 'red', textAlign: 'center', fontWeight: 'bold'}}>{errorMsg}</p>}
+
             <form>
-                <label>Name</label> <br />
-                <input type="text" id="name" name="name" value={car.name} onChange={handleChange} required />
-                <br />
-                <br />
-                <label>Price</label><br />
-                <input type="number" id="price" name="price" value={car.price} onChange={handleChange} required />
-                <br />
-                <br />
-                <label>Category</label><br />
-                <input type="text" id="category" name="category" value={car.category} onChange={handleChange} required />
-                <br />
-                <br />
-                <button onClick={editCar}>Update</button>
-                <button onClick={deleteCar} style={{marginLeft: '10px', backgroundColor: 'red', color: 'white'}}>Delete</button>
+                <label><strong>Car Name:</strong></label> <br />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} required style={{width: '100%', padding: '10px', borderRadius: '5px'}}/>
+                <br /><br />
+                
+                {renderOptions('exterior')}
+                {renderOptions('roof')}
+                {renderOptions('wheels')}
+                {renderOptions('interior')}
+
+                <h3 style={{marginTop: '20px', color: '#111', fontSize: '24px'}}>Total Price: ${calcTotal()}</h3>
+
+                <div style={{display: 'flex', gap: '20px'}}>
+                    <button onClick={handleUpdateCar} style={{width: '60%', padding: '15px', backgroundColor: '#333', color: 'white', border: 'none', borderRadius: '5px', fontSize: '18px', cursor: 'pointer', fontWeight: 'bold'}}>Update Car</button>
+                    <button onClick={handleDelete} style={{width: '40%', padding: '15px', backgroundColor: '#ff4d4d', color: 'white', border: 'none', borderRadius: '5px', fontSize: '18px', cursor: 'pointer', fontWeight: 'bold'}}>Delete</button>
+                </div>
             </form>
         </div>
     )
