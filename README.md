@@ -40,7 +40,7 @@ The following **additional** features are implemented:
 
 Here's a walkthrough of implemented required features:
 
-<a https://www.loom.com/share/1abd1c3fec594ed184140c6c508e44b6 />
+https://www.loom.com/share/1abd1c3fec594ed184140c6c508e44b6 
 
 <!-- Replace this with whatever GIF tool you used! -->
 GIF created with Loom
